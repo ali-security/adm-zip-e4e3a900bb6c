@@ -123,7 +123,14 @@ module.exports = function (/** object */ options, /*Buffer*/ input) {
                     }
                     return data;
                 } else {
-                    inflater.inflateAsync(function (result) {
+                    inflater.inflateAsync(function (result, err) {
+                        if (err) {
+                            // surface inflater/stream failures (e.g. output exceeding the
+                            // declared size) instead of validating the empty placeholder
+                            // buffer against the CRC
+                            if (callback) callback(Buffer.alloc(0), err);
+                            return;
+                        }
                         result.copy(result, 0);
                         if (callback) {
                             if (!crc32OK(result)) {
