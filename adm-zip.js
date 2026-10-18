@@ -692,6 +692,8 @@ module.exports = function (/**String*/ input, /** object */ options) {
                     }
                     var name = canonical(child.entryName);
                     var childName = sanitize(targetPath, maintainEntryPath ? name : pth.basename(name));
+                    // reject writing through a pre-existing symlink inside the target
+                    filetools.assertPathSafe(targetPath, childName);
                     // The reverse operation for attr depend on method addFile()
                     const fileAttr = keepOriginalPermission ? child.header.fileAttr : undefined;
                     filetools.writeFileTo(childName, content, overwrite, fileAttr);
@@ -701,6 +703,9 @@ module.exports = function (/**String*/ input, /** object */ options) {
 
             var content = item.getData(_zip.password);
             if (!content) throw Utils.Errors.CANT_EXTRACT_FILE();
+
+            // reject writing through a pre-existing symlink inside the target
+            filetools.assertPathSafe(targetPath, target);
 
             if (filetools.fs.existsSync(target) && !overwrite) {
                 throw Utils.Errors.CANT_OVERRIDE();
@@ -755,6 +760,8 @@ module.exports = function (/**String*/ input, /** object */ options) {
 
             _zip.entries.forEach(function (entry) {
                 var entryName = sanitize(targetPath, canonical(entry.entryName));
+                // reject writing through a pre-existing symlink inside the target
+                filetools.assertPathSafe(targetPath, entryName);
                 if (entry.isDirectory) {
                     filetools.makeDir(entryName);
                     return;
@@ -827,6 +834,8 @@ module.exports = function (/**String*/ input, /** object */ options) {
                 // The reverse operation for attr depend on method addFile()
                 const dirAttr = keepOriginalPermission ? entry.header.fileAttr : undefined;
                 try {
+                    // reject writing through a pre-existing symlink inside the target
+                    filetools.assertPathSafe(targetPath, dirPath);
                     filetools.makeDir(dirPath);
                     if (dirAttr) filetools.fs.chmodSync(dirPath, dirAttr);
                     // in unix timestamp will change if files are later added to folder, but still
@@ -843,6 +852,12 @@ module.exports = function (/**String*/ input, /** object */ options) {
                     } else {
                         const entryName = pth.normalize(canonical(entry.entryName));
                         const filePath = sanitize(targetPath, entryName);
+                        try {
+                            // reject writing through a pre-existing symlink inside the target
+                            filetools.assertPathSafe(targetPath, filePath);
+                        } catch (er) {
+                            return next(er);
+                        }
                         entry.getDataAsync(function (content, err_1) {
                             if (err_1) {
                                 next(err_1);
